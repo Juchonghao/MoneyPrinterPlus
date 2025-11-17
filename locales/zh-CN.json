@@ -109,9 +109,11 @@
   "Please input video scene resource folder path": "请输入视频片段资源目录路径如:D:\\downloads\\work\\scen1",
   "Video Scene Text": "视频片段文案路径",
   "Please input video scene text path": "请输入视频片段文案路径如:D:\\downloads\\work\\banxin.txt",
+  "Please input video scene text path (Optional)": "请输入视频片段文案路径(可选),如:D:\\downloads\\work\\banxin.txt",
   "Add More Scene": "添加更多片段",
   "Delete Extra Scene": "删除多余片段",
   "One Line Text For One Scene,UTF-8 encoding": "一个场景所需的文字放在TXT文件中的一行,程序会随机从TXT文件中挑选一行文本作为该场景的文字内容,TXT文件必须UTF-8编码",
+  "One Line Text For One Scene,UTF-8 encoding. If empty, audio will be extracted from video files.": "一个场景所需的文字放在TXT文件中的一行,程序会随机从TXT文件中挑选一行文本作为该场景的文字内容,TXT文件必须UTF-8编码。如果留空,将从视频文件中提取音频",
   "You Need More Resource": "视频资源不足,请添加资源后重试",
   "how many videos do you want": "你想生成多少个视频?",
 

@@ -27,8 +27,10 @@ import os
 import random
 import re
 import subprocess
+import tempfile
 from typing import List
 import streamlit as st
+import requests
 
 from PIL import Image
 
@@ -137,12 +139,48 @@ def get_video_info(video_file):
 
 
 def get_image_info(image_file):
-    # 打开图片
-    img = Image.open(image_file)
-    # 获取图片的宽度和高度
-    width, height = img.size
-    print(f'Width: {width}, Height: {height}')
-    return width, height
+    # 检查是否是URL
+    is_url = image_file.startswith('http://') or image_file.startswith('https://')
+    
+    if is_url:
+        # 如果是URL，先下载到临时文件
+        try:
+            response = requests.get(image_file, stream=True, timeout=30)
+            if response.status_code == 200:
+                # 创建临时文件
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                temp_file_path = temp_file.name
+                temp_file.close()
+                
+                # 保存图片到临时文件
+                with open(temp_file_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                
+                # 打开图片
+                img = Image.open(temp_file_path)
+                width, height = img.size
+                print(f'Width: {width}, Height: {height}')
+                
+                # 删除临时文件
+                try:
+                    os.remove(temp_file_path)
+                except:
+                    pass
+                
+                return width, height
+            else:
+                raise Exception(f"无法下载图片: {image_file}, 状态码: {response.status_code}")
+        except Exception as e:
+            print(f"获取图片信息失败: {e}")
+            raise
+    else:
+        # 本地文件，直接打开
+        img = Image.open(image_file)
+        # 获取图片的宽度和高度
+        width, height = img.size
+        print(f'Width: {width}, Height: {height}')
+        return width, height
 
 
 def get_video_duration(video_file):
@@ -253,7 +291,91 @@ class VideoMixService:
         audio_duration = get_audio_duration(audio_file)
         print("音频时长:" + str(audio_duration))
 
+        # 检查是否是单个图片文件（包括URL）
+        is_single_image = False
+        if video_dir.startswith('http://') or video_dir.startswith('https://'):
+            # URL，检查是否是图片文件
+            image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')
+            is_single_image = any(video_dir.lower().endswith(ext) for ext in image_extensions)
+        elif os.path.isfile(video_dir):
+            # 本地文件，检查是否是图片文件
+            is_single_image = video_dir.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'))
+        
+        if is_single_image:
+            # 如果是单个图片文件，直接使用该文件（图片会被转换为视频片段）
+            print(f"检测到单个图片文件/URL: {video_dir}")
+            # 图片使用默认时长
+            video_duration = self.default_duration
+            
+            # 如果单个图片时长不够，需要循环使用
+            total_length = 0
+            while total_length < audio_duration:
+                matching_videos.append(video_dir)
+                total_length += video_duration
+                if total_length >= audio_duration:
+                    break
+            
+            # 如果总时长超过音频时长，需要调整音频
+            if total_length > audio_duration:
+                extend_length = total_length - audio_duration
+                extend_length = int(math.ceil(extend_length))
+                if extend_length > 0:
+                    extent_audio(audio_file, extend_length)
+            
+            print("total length:", total_length, "audio length:", audio_duration)
+            return matching_videos, total_length
+
+        # 检查是否是单个视频文件（包括URL）
+        is_single_video = False
+        if video_dir.startswith('http://') or video_dir.startswith('https://'):
+            # URL，检查是否是视频文件
+            video_extensions = ('.mp4', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.webm', '.m4v')
+            is_single_video = any(video_dir.lower().endswith(ext) for ext in video_extensions)
+        elif os.path.isfile(video_dir):
+            # 本地文件，检查是否是视频文件
+            is_single_video = video_dir.lower().endswith(('.mp4', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.webm', '.m4v'))
+        
+        if is_single_video:
+            # 如果是单个视频文件，直接使用该文件
+            print(f"检测到单个视频文件/URL: {video_dir}")
+            video_duration = get_video_duration(video_dir)
+            if video_duration is None:
+                st.toast(f"无法获取视频时长: {video_dir}", icon="⚠️")
+                st.stop()
+                return [], 0
+            
+            # 短的视频拉长到最小值
+            if video_duration < self.segment_min_length:
+                video_duration = self.segment_min_length
+            if video_duration > self.segment_max_length:
+                video_duration = self.segment_max_length
+            
+            # 如果单个视频时长不够，需要循环使用
+            total_length = 0
+            while total_length < audio_duration:
+                matching_videos.append(video_dir)
+                total_length += video_duration
+                if total_length >= audio_duration:
+                    break
+            
+            # 如果总时长超过音频时长，需要调整音频
+            if total_length > audio_duration:
+                # 计算需要延长的时长（负数表示需要缩短，但这里我们延长音频来匹配）
+                extend_length = total_length - audio_duration
+                extend_length = int(math.ceil(extend_length))
+                if extend_length > 0:
+                    extent_audio(audio_file, extend_length)
+            
+            print("total length:", total_length, "audio length:", audio_duration)
+            return matching_videos, total_length
+
+        # 如果不是单个文件，按原来的逻辑处理目录
         # 获取媒体文件夹中的所有图片和视频文件
+        if not os.path.exists(video_dir) or not os.path.isdir(video_dir):
+            st.toast(f"视频路径不存在或不是目录: {video_dir}", icon="⚠️")
+            st.stop()
+            return [], 0
+        
         media_files = [os.path.join(video_dir, f) for f in os.listdir(video_dir) if
                        f.lower().endswith(('.jpg', '.jpeg', '.png', '.mp4', '.mov'))]
 
@@ -261,7 +383,7 @@ class VideoMixService:
         random.shuffle(media_files)
 
         # 确保有视频文件在列表中
-        video_files = [os.path.join(video_dir, f) for f in media_files if f.lower().endswith(('.mp4', '.mov'))]
+        video_files = [f for f in media_files if f.lower().endswith(('.mp4', '.mov'))]
         if video_files:
             # 从视频文件中随机选择一个
             random_video = random.choice(video_files)

@@ -85,15 +85,25 @@ class TencentAudioService(AudioService):
 
             }
             req.from_json_string(json.dumps(params))
-            resp = client.TextToVoice(req)
-            # 输出json格式的字符串回包
-            # print(resp.to_json_string())
-            # 使用base64库解码字符串
-            decoded_audio_data = base64.b64decode(resp.Audio)
-            # 写入WAV文件
-            print("腾讯语音合成任务成功")
-            with open(file_name, 'wb') as wav_file:
-                wav_file.write(decoded_audio_data)
+            try:
+                resp = client.TextToVoice(req)
+                # 输出json格式的字符串回包
+                # print(resp.to_json_string())
+                # 使用base64库解码字符串
+                decoded_audio_data = base64.b64decode(resp.Audio)
+                # 写入WAV文件
+                print("腾讯语音合成任务成功")
+                with open(file_name, 'wb') as wav_file:
+                    wav_file.write(decoded_audio_data)
+            except Exception as e:
+                error_msg = str(e)
+                print(f"腾讯语音合成失败: {error_msg}")
+                # 尝试获取更详细的错误信息
+                if hasattr(e, 'code') and hasattr(e, 'message'):
+                    error_msg = f"错误代码: {e.code}, 错误信息: {e.message}"
+                    if hasattr(e, 'requestId'):
+                        error_msg += f", 请求ID: {e.requestId}"
+                raise Exception(f"腾讯云TTS服务调用失败: {error_msg}")
         else:
             # 使用腾讯长文本语音合成
             # 实例化一个请求对象,每个接口都会对应一个request对象
@@ -107,9 +117,19 @@ class TencentAudioService(AudioService):
             }
             req.from_json_string(json.dumps(params))
             # 返回的resp是一个CreateTtsTaskResponse的实例，与请求对象对应
-            resp = client.CreateTtsTask(req)
-            # 输出json格式的字符串回包
-            print(resp.to_json_string())
+            try:
+                resp = client.CreateTtsTask(req)
+                # 输出json格式的字符串回包
+                print(resp.to_json_string())
+            except Exception as e:
+                error_msg = str(e)
+                print(f"腾讯长文本语音合成任务创建失败: {error_msg}")
+                # 尝试获取更详细的错误信息
+                if hasattr(e, 'code') and hasattr(e, 'message'):
+                    error_msg = f"错误代码: {e.code}, 错误信息: {e.message}"
+                    if hasattr(e, 'requestId'):
+                        error_msg += f", 请求ID: {e.requestId}"
+                raise Exception(f"腾讯云TTS服务调用失败: {error_msg}")
             long_tts_request_id = resp.RequestId
             long_tts_request_task = resp.Data.TaskId
             time.sleep(2)

@@ -73,28 +73,68 @@ class TencentRecognitionService:
         req.set_convert_num_mode(1)
 
         # 音频路径
-        with open(audioFile, 'rb') as f:
-            # 读取音频数据
-            data = f.read()
-            # 执行识别
-            resultData = recognizer.recognize(req, data)
-            resp = json.loads(resultData)
-            request_id = resp["request_id"]
-            code = resp["code"]
-            if code != 0:
-                print("recognize failed! request_id: ", request_id, " code: ", code, ", message: ", resp["message"])
-                st.toast("腾讯云语音识别失败", icon="⚠️")
-                return None
-
-            print("request_id: ", request_id)
-            # 一个channl_result对应一个声道的识别结果
-            # 大多数音频是单声道，对应一个channl_result
-            for channl_result in resp["flash_result"]:
-                # print("channel_id: ", channl_result["channel_id"])
-                # print(channl_result)
-                for sentence in channl_result['sentence_list']:
-                    print(sentence)
-                    result_list.append(
-                        TencentRecognitionResult(sentence['text'], sentence['start_time'],
-                                                 sentence['end_time']))
-            return result_list
+        try:
+            with open(audioFile, 'rb') as f:
+                # 读取音频数据
+                data = f.read()
+                # 执行识别
+                resultData = recognizer.recognize(req, data)
+                
+                # 检查响应是否为空或无效
+                if not resultData or not resultData.strip():
+                    print(f"腾讯云语音识别返回空响应")
+                    st.toast("腾讯云语音识别返回空响应，可能是音频文件有问题", icon="⚠️")
+                    return None
+                
+                # 尝试解析 JSON
+                try:
+                    resp = json.loads(resultData)
+                except json.JSONDecodeError as e:
+                    print(f"腾讯云语音识别返回无效JSON: {resultData[:200]}...")  # 只打印前200个字符
+                    print(f"JSON解析错误: {e}")
+                    st.toast(f"腾讯云语音识别返回无效响应: {str(e)}", icon="⚠️")
+                    return None
+                
+                # 检查响应结构
+                if "request_id" not in resp:
+                    print(f"腾讯云语音识别响应缺少request_id: {resp}")
+                    st.toast("腾讯云语音识别响应格式错误", icon="⚠️")
+                    return None
+                
+                request_id = resp["request_id"]
+                code = resp.get("code", -1)
+                if code != 0:
+                    message = resp.get("message", "未知错误")
+                    print("recognize failed! request_id: ", request_id, " code: ", code, ", message: ", message)
+                    st.toast(f"腾讯云语音识别失败: {message}", icon="⚠️")
+                    return None
+        except FileNotFoundError:
+            print(f"音频文件不存在: {audioFile}")
+            st.toast(f"音频文件不存在: {audioFile}", icon="⚠️")
+            return None
+        except Exception as e:
+            print(f"腾讯云语音识别过程出错: {e}")
+            st.toast(f"腾讯云语音识别出错: {str(e)}", icon="⚠️")
+            return None
+        
+        # 如果成功解析，继续处理结果
+        print("request_id: ", request_id)
+        # 一个channl_result对应一个声道的识别结果
+        # 大多数音频是单声道，对应一个channl_result
+        if "flash_result" not in resp:
+            print(f"腾讯云语音识别响应缺少flash_result: {resp}")
+            st.toast("腾讯云语音识别响应缺少识别结果", icon="⚠️")
+            return None
+        
+        for channl_result in resp["flash_result"]:
+            # print("channel_id: ", channl_result["channel_id"])
+            # print(channl_result)
+            if "sentence_list" not in channl_result:
+                print(f"channl_result缺少sentence_list: {channl_result}")
+                continue
+            for sentence in channl_result['sentence_list']:
+                print(sentence)
+                result_list.append(
+                    TencentRecognitionResult(sentence['text'], sentence['start_time'],
+                                             sentence['end_time']))
+        return result_list

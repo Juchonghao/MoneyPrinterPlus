@@ -131,19 +131,25 @@ def main_try_test_local_audio():
 
 def main_try_test_audio():
     print("main_try_test_audio begin")
-    audio_service = get_audio_service()
-    audio_rate = get_audio_rate()
-    audio_language = st.session_state.get("audio_language")
-    if audio_language == "en-US":
-        video_content = "hello,this is flydean"
-    else:
-        video_content = "你好，我是程序那些事"
-    audio_voice = get_must_session_option("audio_voice", "请先设置配音语音")
-    if audio_voice is None:
-        return
-    audio_service.read_with_ssml(video_content,
-                                 audio_voice,
-                                 audio_rate)
+    try:
+        audio_service = get_audio_service()
+        audio_rate = get_audio_rate()
+        audio_language = st.session_state.get("audio_language")
+        if audio_language == "en-US":
+            video_content = "hello,this is flydean"
+        else:
+            video_content = "你好，我是程序那些事"
+        audio_voice = get_must_session_option("audio_voice", "请先设置配音语音")
+        if audio_voice is None:
+            return
+        audio_service.read_with_ssml(video_content,
+                                     audio_voice,
+                                     audio_rate)
+    except Exception as e:
+        error_msg = str(e)
+        print(f"试听音频失败: {error_msg}")
+        st.error(f"试听音频失败: {error_msg}")
+        raise
 
 
 def main_generate_video_dubbing():

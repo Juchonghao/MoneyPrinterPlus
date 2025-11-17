@@ -82,7 +82,8 @@ def more_scene_fragment(video_scene_container):
                 st.text_input(label=tr("Video Scene Resource"),
                               placeholder=tr("Please input video scene resource folder path"),
                               key="video_scene_folder_" + str(k + 2))
-                st.text_input(label=tr("Video Scene Text"), placeholder=tr("Please input video scene text path"),
+                st.text_input(label=tr("Video Scene Text") + " (可选)", placeholder=tr("Please input video scene text path (Optional)"),
+                              help=tr("One Line Text For One Scene,UTF-8 encoding. If empty, audio will be extracted from video files."),
                               key="video_scene_text_" + str(k + 2))
 
 
@@ -110,8 +111,8 @@ with mix_video_container:
         st.subheader(tr("Mix Video Scene") + str(1))
         st.text_input(label=tr("Video Scene Resource"), placeholder=tr("Please input video scene resource folder path"),
                       key="video_scene_folder_" + str(1))
-        st.text_input(label=tr("Video Scene Text"), placeholder=tr("Please input video scene text path"),
-                      help=tr("One Line Text For One Scene,UTF-8 encoding"),
+        st.text_input(label=tr("Video Scene Text") + " (可选)", placeholder=tr("Please input video scene text path (Optional)"),
+                      help=tr("One Line Text For One Scene,UTF-8 encoding. If empty, audio will be extracted from video files."),
                       key="video_scene_text_" + str(1))
     more_scene_fragment(video_scene_container)
     st_columns = st.columns(2)
